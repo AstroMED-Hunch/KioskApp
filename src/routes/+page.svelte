@@ -6,14 +6,20 @@
     let show_entered_popup = $state(false);
     let entering_box_id = $state(-1);
     let status = $state("idle");
+    let shelf_location = $state("");
+    let shelf_full_confirmed = $state(false);
     let show_entered_popup_v = $derived(show_entered_popup || status !== "idle");
 
+    let sendRegisterRequest = () => {};
     onMount(() => {
         let socket = new WebSocket("ws://localhost:3000");
 
         socket.onopen = () => {
             console.log("WebSocket connection established");
             socket.send(JSON.stringify({type: "kioskConnected"}));
+            sendRegisterRequest = () => {
+                socket.send(JSON.stringify({type: "registerBox", message: entering_box_id}));
+            }
         }
 
         socket.onmessage = (e) => {
@@ -27,6 +33,11 @@
                 show_entered_popup = false;
             } else if (jsonMsg.type === "statusUpdate") {
                 status = jsonMsg.message;
+                shelf_full_confirmed = false;
+            } else if (jsonMsg.type === "boxLocation") {
+                shelf_location = jsonMsg.message;
+                show_entered_popup = false;
+                status = "location_received";
             }
         }
     });
@@ -36,14 +47,27 @@
 <Popup show={show_entered_popup_v} onClose={() => show_entered_popup = false}>
     <div class="popup-stack">
         {#key status || show_entered_popup}
-            {#if show_entered_popup}
+            {#if status === "location_received"}
+            <div out:slide={{duration: 300, axis:"x"}} in:blur={{duration: 400}} class="popup-centered">
+                <h1>Box Registered!</h1>
+                <h3>Please Place the box at:</h3>
+                <h2>{shelf_location}</h2>
+                <button onclick={() => status = "idle"}>Okay!</button>
+            </div>
+            {:else if status === "shelves_full" && !shelf_full_confirmed}
+                <div out:slide={{duration: 300, axis:"x"}} in:blur={{duration: 400}} class="popup-centered">
+                    <h1>All shelves are full!</h1>
+                    <h3>Please wait for a shelf to be freed up.</h3>
+                    <button onclick={() => {shelf_full_confirmed=true; show_entered_popup = false; status="idle"}}>Okay!</button>
+                </div>
+            {:else if show_entered_popup}
                 <div out:slide={{duration: 300, axis:"x"}} in:blur={{duration: 400}} class="popup-centered">
                     <h1>A new box is visible!</h1>
                     <h3>Would you like to register?</h3>
                     <p class="box-id">Box: {entering_box_id}</p>
                     <div class="options">
-                        <button onclick={() => console.log("Yes")}>Yes</button>
-                        <button onclick={() => console.log("No")}>No</button>
+                        <button onclick={() => sendRegisterRequest()}>Yes</button>
+                        <button onclick={() => show_entered_popup = false}>No</button>
                     </div>
                 </div>
             {:else if status === "multiple_boxes"}
