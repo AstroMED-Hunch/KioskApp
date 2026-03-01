@@ -2,6 +2,7 @@
     import Popup from "$lib/Popup.svelte";
     import {onMount} from "svelte";
     import { slide, blur } from "svelte/transition";
+    import ShelfEntry from "$lib/ShelfEntry.svelte";
 
     let show_entered_popup = $state(false);
     let entering_box_id = $state(-1);
@@ -10,9 +11,16 @@
     let shelf_full_confirmed = $state(false);
     let show_entered_popup_v = $derived(show_entered_popup || status !== "idle");
 
+    let shelves_json = $state([]);
+
     let sendRegisterRequest = () => {};
     onMount(() => {
         let socket = new WebSocket("ws://localhost:3000");
+
+        let shelves_response = fetch("http://localhost:8000/getShelves").then(res => res.json()).then(json => {
+            console.log("what is this guy yapping abt")
+            shelves_json = json.shelves;
+        });
 
         socket.onopen = () => {
             console.log("WebSocket connection established");
@@ -43,7 +51,7 @@
     });
 </script>
 
-<!-- Box Recognition -->
+<!-- Box Recognition Popups -->
 <Popup show={show_entered_popup_v} onClose={() => show_entered_popup = false}>
     <div class="popup-stack">
         {#key status || show_entered_popup}
@@ -80,7 +88,22 @@
     </div>
 </Popup>
 
+<div class="shelf-storage">
+    {#key shelves_json}
+        {#each shelves_json as shelf}
+            <ShelfEntry shelf_tag={shelf.tag} box_id={shelf.box_id} checkout_callback={() => {}} />
+        {/each}
+    {/key}
+</div>
+
 <style>
+    .shelf-storage {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-right: 0;
+    }
+
     .popup-stack {
         overflow: hidden;
         display: grid;
@@ -109,6 +132,6 @@
     h3 {
         margin: 0;
         font-size: 1em;
-        color: #393939
+        color: #393939;
     }
 </style>
