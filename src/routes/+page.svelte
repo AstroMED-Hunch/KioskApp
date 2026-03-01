@@ -10,6 +10,7 @@
     let shelf_location = $state("");
     let shelf_full_confirmed = $state(false);
     let show_entered_popup_v = $derived(show_entered_popup || status !== "idle");
+    let currently_detected_face = $state("");
 
     let shelves_json = $state([]);
 
@@ -46,6 +47,13 @@
                 shelf_location = jsonMsg.message;
                 show_entered_popup = false;
                 status = "location_received";
+            } else if (jsonMsg.type === "boxUpdate") {
+                let shelves_response = fetch("http://localhost:8000/getShelves").then(res => res.json()).then(json => {
+                    console.log("what is this guy yapping abt")
+                    shelves_json = json.shelves;
+                });
+            } else if (jsonMsg.type === "faceRecognitionUpdate") {
+                currently_detected_face = jsonMsg.message;
             }
         }
     });
@@ -62,6 +70,24 @@
                 <h2>{shelf_location}</h2>
                 <button onclick={() => status = "idle"}>Okay!</button>
             </div>
+            {:else if status === "face_recognition_boxentry"}
+                <div out:slide={{duration: 300, axis:"x"}} in:blur={{duration: 400}} class="popup-centered">
+                    <h1>{
+                        currently_detected_face === "err_nodetect" ? "No face detected!" :
+                            currently_detected_face === "err_multiple" ? "Multiple faces detected!" :
+                                "Are you "+currently_detected_face+"?"
+                    }</h1>
+                    <h3>{
+                        currently_detected_face === "err_nodetect" ? "Please ensure your face is visible to the camera." :
+                            currently_detected_face === "err_multiple" ? "Please ensure only your face is visible to the camera." :
+                                "If this is correct, please press continue."
+                    }</h3>
+                    {#if currently_detected_face !== "err_nodetect" && currently_detected_face !== "err_multiple"}
+                    <div class="options">
+                        <button onclick={() => sendRegisterRequest()}>Continue</button>
+                    </div>
+                    {/if}
+                </div>
             {:else if status === "shelves_full" && !shelf_full_confirmed}
                 <div out:slide={{duration: 300, axis:"x"}} in:blur={{duration: 400}} class="popup-centered">
                     <h1>All shelves are full!</h1>
@@ -84,6 +110,7 @@
                     <h3>Please adjust the camera to only show one box.</h3>
                 </div>
             {/if}
+
         {/key}
     </div>
 </Popup>
@@ -91,7 +118,7 @@
 <div class="shelf-storage">
     {#key shelves_json}
         {#each shelves_json as shelf}
-            <ShelfEntry shelf_tag={shelf.tag} box_id={shelf.box_id} checkout_callback={() => {}} />
+            <ShelfEntry shelf_tag={shelf.tag} box_id={shelf.box_id} box_name={shelf.box_pretty_name} checkout_callback={() => {}} />
         {/each}
     {/key}
 </div>

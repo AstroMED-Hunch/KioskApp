@@ -1,13 +1,13 @@
 <script>
     import Popup from "./Popup.svelte";
 
-    let { shelf_tag, box_id, checkout_callback } = $props();
+    let { shelf_tag, box_id, box_name, checkout_callback } = $props();
 </script>
 
 <div class="shelf-entry">
     <div class="text">
         <h2>{shelf_tag}</h2>
-        <p>{box_id === -1 ? "none" : box_id}</p>
+        <p>Contents: {(box_id === -1 ? "none" : "Box #"+box_id) + (box_name == "" ? "" : " ("+box_name+")")}</p>
     </div>
 
     <button onclick={checkout_callback}>Checkout</button>
@@ -16,8 +16,7 @@
 <style>
     .text {
         display: flex;
-        flex-direction: column;
-        text-align: center;
+        flex-direction: column
     }
 
     h2 {
