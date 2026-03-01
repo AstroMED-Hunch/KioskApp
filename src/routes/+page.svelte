@@ -10,11 +10,13 @@
     let shelf_location = $state("");
     let shelf_full_confirmed = $state(false);
     let show_entered_popup_v = $derived(show_entered_popup || status !== "idle");
-    let currently_detected_face = $state("");
+    let currently_detected_face = $state("err_nodetect");
+    let shelf_currently_checking_out = $state("");
 
     let shelves_json = $state([]);
 
     let sendRegisterRequest = () => {};
+    let checkout_shelf = (shelf_tag: string) => {};
     onMount(() => {
         let socket = new WebSocket("ws://localhost:3000");
 
@@ -28,6 +30,13 @@
             socket.send(JSON.stringify({type: "kioskConnected"}));
             sendRegisterRequest = () => {
                 socket.send(JSON.stringify({type: "registerBox", message: entering_box_id}));
+            }
+            checkout_shelf = (shelf_tag: string) => {
+                let confirm_checkout = confirm("Are you sure you want to check out the box at shelf "+shelf_tag+"?");
+                shelf_currently_checking_out = confirm_checkout ? shelf_tag : "";
+                if (confirm_checkout) {
+                    socket.send(JSON.stringify({type: "registerBoxExit", message: shelf_tag}));
+                }
             }
         }
 
@@ -70,7 +79,7 @@
                 <h2>{shelf_location}</h2>
                 <button onclick={() => status = "idle"}>Okay!</button>
             </div>
-            {:else if status === "face_recognition_boxentry"}
+            {:else if status === "face_recognition_boxentry" || status === "face_recognition_boxexit"}
                 <div out:slide={{duration: 300, axis:"x"}} in:blur={{duration: 400}} class="popup-centered">
                     <h1>{
                         currently_detected_face === "err_nodetect" ? "No face detected!" :
@@ -84,7 +93,13 @@
                     }</h3>
                     {#if currently_detected_face !== "err_nodetect" && currently_detected_face !== "err_multiple"}
                     <div class="options">
-                        <button onclick={() => sendRegisterRequest()}>Continue</button>
+                        <button onclick={() => {
+                            if (status === "face_recognition_boxentry") {
+                                sendRegisterRequest();
+                            } else if (status === "face_recognition_boxexit") {
+                                checkout_shelf(shelf_currently_checking_out);
+                            }
+                        }}>Continue</button>
                     </div>
                     {/if}
                 </div>
@@ -118,7 +133,7 @@
 <div class="shelf-storage">
     {#key shelves_json}
         {#each shelves_json as shelf}
-            <ShelfEntry shelf_tag={shelf.tag} box_id={shelf.box_id} box_name={shelf.box_pretty_name} checkout_callback={() => {}} />
+            <ShelfEntry shelf_tag={shelf.tag} box_id={shelf.box_id} box_name={shelf.box_pretty_name} checkout_callback={() => {checkout_shelf(shelf.tag)}} />
         {/each}
     {/key}
 </div>
