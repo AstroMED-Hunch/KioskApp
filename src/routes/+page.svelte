@@ -12,30 +12,30 @@
     let show_entered_popup_v = $derived(show_entered_popup || status !== "idle");
     let currently_detected_face = $state("err_nodetect");
     let shelf_currently_checking_out = $state("");
+    let connected = $state(false);
 
     let shelves_json = $state([]);
 
     let sendRegisterRequest = () => {};
     let checkout_shelf = (shelf_tag: string) => {};
-    onMount(() => {
+    
+    function connect() {
         let socket = new WebSocket("ws://localhost:3000");
-
-        let shelves_response = fetch("http://localhost:8000/getShelves").then(res => res.json()).then(json => {
-            console.log("what is this guy yapping abt")
-            shelves_json = json.shelves;
-        });
 
         socket.onopen = () => {
             console.log("WebSocket connection established");
+            connected = true;
             socket.send(JSON.stringify({type: "kioskConnected"}));
             sendRegisterRequest = () => {
                 socket.send(JSON.stringify({type: "registerBox", message: entering_box_id}));
             }
             checkout_shelf = (shelf_tag: string) => {
+                shelf_currently_checking_out = shelf_tag;
                 let confirm_checkout = confirm("Are you sure you want to check out the box at shelf "+shelf_tag+"?");
-                shelf_currently_checking_out = confirm_checkout ? shelf_tag : "";
-                if (confirm_checkout) {
+                 if (confirm_checkout) {
                     socket.send(JSON.stringify({type: "registerBoxExit", message: shelf_tag}));
+                } else {
+                    shelf_currently_checking_out = "";
                 }
             }
         }
@@ -43,10 +43,11 @@
         socket.onmessage = (e) => {
             let jsonMsg = JSON.parse(e.data);
             console.log(jsonMsg);
-            if (jsonMsg.type === "boxEnterConfirmation") {
+            if (jsonMsg.type === "boxEntered") {
                 entering_box_id = jsonMsg.message;
                 show_entered_popup = true;
-            } else if (jsonMsg.type === "boxEnterCancel") {
+            } else if (jsonMsg.type === "boxExited") {
+                // Handle box exit if needed
                 entering_box_id = -1;
                 show_entered_popup = false;
             } else if (jsonMsg.type === "statusUpdate") {
@@ -57,14 +58,33 @@
                 show_entered_popup = false;
                 status = "location_received";
             } else if (jsonMsg.type === "boxUpdate") {
-                let shelves_response = fetch("http://localhost:8000/getShelves").then(res => res.json()).then(json => {
-                    console.log("what is this guy yapping abt")
+                fetch("http://localhost:8000/getShelves").then(res => res.json()).then(json => {
                     shelves_json = json.shelves;
-                });
+                }).catch(err => console.error("Failed to fetch shelves:", err));
             } else if (jsonMsg.type === "faceRecognitionUpdate") {
                 currently_detected_face = jsonMsg.message;
             }
         }
+
+        socket.onclose = () => {
+            console.log("WebSocket connection closed. Reconnecting in 3s...");
+            connected = false;
+            setTimeout(connect, 3000);
+        }
+
+        socket.onerror = (err) => {
+            console.error("WebSocket error:", err);
+            socket.close();
+        }
+    }
+
+    onMount(() => {
+        connect();
+
+        fetch("http://localhost:8000/getShelves").then(res => res.json()).then(json => {
+            // console.log("what is this guy yapping abt")
+            shelves_json = json.shelves;
+        }).catch(err => console.error("Failed to fetch shelves:", err));
     });
 </script>
 
@@ -97,7 +117,13 @@
                             if (status === "face_recognition_boxentry") {
                                 sendRegisterRequest();
                             } else if (status === "face_recognition_boxexit") {
-                                checkout_shelf(shelf_currently_checking_out);
+                                // Assuming we need to re-send to confirm, or backend logic handles it differently. 
+                                // But without a specific 'confirm' message type, re-sending appropriate action seems logical if the first action triggered the state.
+                                // However, if the first action put us in this state, maybe we just wait?
+                                // Let's assume the "Continue" here is for visual confirmation if the system is waiting.
+                                // If the backend automatically proceeds on face match, then this button is redundant or just closes the popup.
+                                // But if it waits for client:
+                                socket.send(JSON.stringify({type: "registerBoxExit", message: shelf_currently_checking_out}));
                             }
                         }}>Continue</button>
                     </div>
@@ -135,6 +161,7 @@
         <span class="header-label">STORAGE MANAGEMENT SYSTEM</span>
         <span class="header-divider"></span>
         <span class="header-sub">SHELF CONTROL INTERFACE</span>
+        <span class="status-indicator" style="background-color: {connected ? 'var(--color-primary)' : 'red'};"></span>
     </header>
 
     <div class="shelf-storage">
@@ -268,5 +295,13 @@
         background-color: var(--color-primary);
         color: var(--color-bg);
         box-shadow: 0 0 16px rgba(102, 252, 241, 0.45);
+    }
+    
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 10px;
     }
 </style>
