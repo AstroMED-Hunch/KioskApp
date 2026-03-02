@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Roboto:wght@400;500;700&display=swap');
+@import 'augmented-ui';
+
+:root {
+    --color-bg: #0b0c10;
+    --color-panel: #1f2833;
+    --color-primary: #66fcf1;
+    --color-secondary: #45a29e;
+    --color-text: #c5c6c7;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Roboto', sans-serif;
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Mono', monospace;
+}

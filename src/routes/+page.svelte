@@ -130,20 +130,66 @@
     </div>
 </Popup>
 
-<div class="shelf-storage">
-    {#key shelves_json}
-        {#each shelves_json as shelf}
-            <ShelfEntry shelf_tag={shelf.tag} box_id={shelf.box_id} box_name={shelf.box_pretty_name} checkout_callback={() => {checkout_shelf(shelf.tag)}} />
-        {/each}
-    {/key}
+<div class="page-wrapper">
+    <header class="site-header">
+        <span class="header-label">STORAGE MANAGEMENT SYSTEM</span>
+        <span class="header-divider"></span>
+        <span class="header-sub">SHELF CONTROL INTERFACE</span>
+    </header>
+
+    <div class="shelf-storage">
+        {#key shelves_json}
+            {#each shelves_json as shelf}
+                <ShelfEntry shelf_tag={shelf.tag} box_id={shelf.box_id} box_name={shelf.box_pretty_name} checkout_callback={() => {checkout_shelf(shelf.tag)}} />
+            {/each}
+        {/key}
+    </div>
 </div>
 
 <style>
+    .page-wrapper {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        padding: 32px 48px;
+        gap: 24px;
+    }
+
+    .site-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--color-secondary);
+        margin-bottom: 8px;
+    }
+
+    .header-label {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.85rem;
+        letter-spacing: 0.2em;
+        color: var(--color-primary);
+        text-transform: uppercase;
+    }
+
+    .header-divider {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(to right, var(--color-secondary), transparent);
+    }
+
+    .header-sub {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.65rem;
+        letter-spacing: 0.15em;
+        color: var(--color-secondary);
+        text-transform: uppercase;
+    }
+
     .shelf-storage {
         display: flex;
         flex-direction: column;
-        gap: 16px;
-        margin-right: 0;
+        gap: 12px;
     }
 
     .popup-stack {
@@ -151,29 +197,76 @@
         display: grid;
         grid-template-areas: "overlay";
     }
+
     .popup-stack > * {
         grid-area: overlay;
     }
+
     .popup-centered {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
         white-space: nowrap;
         min-width: max-content;
     }
+
     .options {
         display: flex;
         align-items: center;
         gap: 16px;
+        margin-top: 4px;
     }
+
     h1 {
         margin: 0;
-        font-size: 1.5em;
+        font-size: 1.4rem;
+        color: var(--color-primary);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
     }
+
+    h2 {
+        margin: 0;
+        font-size: 1.8rem;
+        color: var(--color-primary);
+        letter-spacing: 0.1em;
+        text-shadow: 0 0 20px rgba(102, 252, 241, 0.6);
+    }
+
     h3 {
         margin: 0;
-        font-size: 1em;
-        color: #393939;
+        font-size: 0.9rem;
+        color: var(--color-text);
+        font-family: 'Roboto', sans-serif;
+        font-weight: 400;
+        letter-spacing: 0.03em;
+    }
+
+    .box-id {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.85rem;
+        color: var(--color-secondary);
+        letter-spacing: 0.08em;
+        margin: 0;
+    }
+
+    button {
+        padding: 8px 24px;
+        background-color: transparent;
+        color: var(--color-primary);
+        border: 1px solid var(--color-primary);
+        cursor: pointer;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+        background-color: var(--color-primary);
+        color: var(--color-bg);
+        box-shadow: 0 0 16px rgba(102, 252, 241, 0.45);
     }
 </style>

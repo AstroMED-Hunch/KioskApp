@@ -5,7 +5,7 @@
 
 {#if show}
     <div class="popup-backdrop" transition:fade={{duration: 300}} onclick={onClose} role="presentation"></div>
-    <div class="popup-content" transition:scale={{ duration: 300 }}>
+    <div class="popup-content" transition:scale={{ duration: 300 }} data-augmented-ui="tl-clip tr-clip br-clip bl-clip border">
         {@render children()}
     </div>
 {/if}
@@ -15,8 +15,7 @@
         position: fixed;
         inset: 0;
         z-index: 40;
-        opacity: 0.5;
-        background: black;
+        background: rgba(11, 12, 16, 0.85);
     }
 
     .popup-content {
@@ -25,12 +24,16 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        padding: 16px;
-
-        background-color: #ffffff;
-        border: 1px solid #000000;
-
-        border-radius: 8px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        padding: 36px 48px;
+        background-color: var(--color-panel);
+        --aug-tl: 20px;
+        --aug-tr: 20px;
+        --aug-br: 20px;
+        --aug-bl: 20px;
+        --aug-border-bg: var(--color-primary);
+        --aug-border-size: 1px;
+        box-shadow:
+            0 0 40px rgba(102, 252, 241, 0.12),
+            inset 0 0 40px rgba(102, 252, 241, 0.04);
     }
 </style>
