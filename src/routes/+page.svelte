@@ -16,9 +16,23 @@
 
     let shelves_json = $state([]);
 
+    type PillEntry = { pill_type: string; quantity: number };
+    let pill_scan_result = $state<PillEntry[]>([]);
+    let pill_scan_captured = $state(false);
+
     let sendRegisterRequest = () => {};
+    let sendRegisterBoxExit = () => {};
+    let sendCapturePills = () => {};
     let checkout_shelf = (shelf_tag: string) => {};
     
+    let handleFaceRecContinue = () => {
+        if (status === "face_recognition_boxentry") {
+            sendRegisterRequest();
+        } else if (status === "face_recognition_boxexit") {
+            sendRegisterBoxExit();
+        }
+    }
+
     function connect() {
         let socket = new WebSocket("ws://localhost:3000");
 
@@ -28,6 +42,14 @@
             socket.send(JSON.stringify({type: "kioskConnected"}));
             sendRegisterRequest = () => {
                 socket.send(JSON.stringify({type: "registerBox", message: entering_box_id}));
+            }
+            sendRegisterBoxExit = () => {
+                socket.send(JSON.stringify({type: "registerBoxExit", message: shelf_currently_checking_out}));
+            }
+            sendCapturePills = () => {
+                pill_scan_captured = false;
+                pill_scan_result = [];
+                socket.send(JSON.stringify({type: "capturePills"}));
             }
             checkout_shelf = (shelf_tag: string) => {
                 shelf_currently_checking_out = shelf_tag;
@@ -43,16 +65,20 @@
         socket.onmessage = (e) => {
             let jsonMsg = JSON.parse(e.data);
             console.log(jsonMsg);
-            if (jsonMsg.type === "boxEntered") {
+
+            if (jsonMsg.type === "boxEnterConfirmation") {
                 entering_box_id = jsonMsg.message;
                 show_entered_popup = true;
-            } else if (jsonMsg.type === "boxExited") {
-                // Handle box exit if needed
+            } else if (jsonMsg.type === "boxEnterCancel") {
                 entering_box_id = -1;
                 show_entered_popup = false;
             } else if (jsonMsg.type === "statusUpdate") {
                 status = jsonMsg.message;
                 shelf_full_confirmed = false;
+                if (jsonMsg.message !== "pill_checkup") {
+                    pill_scan_result = [];
+                    pill_scan_captured = false;
+                }
             } else if (jsonMsg.type === "boxLocation") {
                 shelf_location = jsonMsg.message;
                 show_entered_popup = false;
@@ -63,6 +89,9 @@
                 }).catch(err => console.error("Failed to fetch shelves:", err));
             } else if (jsonMsg.type === "faceRecognitionUpdate") {
                 currently_detected_face = jsonMsg.message;
+            } else if (jsonMsg.type === "pillScanResult") {
+                pill_scan_result = jsonMsg.message;
+                pill_scan_captured = true;
             }
         }
 
@@ -113,20 +142,40 @@
                     }</h3>
                     {#if currently_detected_face !== "err_nodetect" && currently_detected_face !== "err_multiple"}
                     <div class="options">
-                        <button onclick={() => {
-                            if (status === "face_recognition_boxentry") {
-                                sendRegisterRequest();
-                            } else if (status === "face_recognition_boxexit") {
-                                // Assuming we need to re-send to confirm, or backend logic handles it differently. 
-                                // But without a specific 'confirm' message type, re-sending appropriate action seems logical if the first action triggered the state.
-                                // However, if the first action put us in this state, maybe we just wait?
-                                // Let's assume the "Continue" here is for visual confirmation if the system is waiting.
-                                // If the backend automatically proceeds on face match, then this button is redundant or just closes the popup.
-                                // But if it waits for client:
-                                socket.send(JSON.stringify({type: "registerBoxExit", message: shelf_currently_checking_out}));
-                            }
-                        }}>Continue</button>
+                        <button onclick={handleFaceRecContinue}>Continue</button>
                     </div>
+                    {/if}
+                </div>
+            {:else if status === "pill_checkup"}
+                <div out:slide={{duration: 300, axis:"x"}} in:blur={{duration: 400}} class="popup-centered">
+                    <h1>Pill Verification</h1>
+                    {#if !pill_scan_captured}
+                        <p class="pill-hint">Point the camera at the pills inside the box, then capture.</p>
+                        <button onclick={() => sendCapturePills()}>Capture Pills</button>
+                    {:else}
+                        <div class="pill-results">
+                            {#if pill_scan_result.length === 0}
+                                <p class="pill-hint">No pills detected.</p>
+                            {:else}
+                                <table class="pill-table">
+                                    <thead>
+                                        <tr><th>Pill Type</th><th>Qty</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {#each pill_scan_result as entry}
+                                            <tr>
+                                                <td>{entry.pill_type}</td>
+                                                <td class="pill-qty">{entry.quantity}</td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            {/if}
+                        </div>
+                        <div class="options">
+                            <button onclick={() => sendCapturePills()}>Re-capture</button>
+                            <button onclick={() => sendRegisterRequest()}>Confirm &amp; Register</button>
+                        </div>
                     {/if}
                 </div>
             {:else if status === "shelves_full" && !shelf_full_confirmed}
@@ -303,5 +352,52 @@
         border-radius: 50%;
         display: inline-block;
         margin-left: 10px;
+    }
+
+    .mono-highlight {
+        font-family: 'Space Mono', monospace;
+        color: var(--color-primary);
+        font-weight: 700;
+    }
+
+    .pill-hint {
+        color: var(--color-secondary);
+        font-size: 0.8rem;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+
+    .pill-results {
+        width: 100%;
+        max-height: 200px;
+        overflow-y: auto;
+        margin-bottom: 12px;
+        border: 1px solid var(--color-secondary);
+        padding: 8px;
+    }
+
+    .pill-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+    }
+
+    .pill-table th {
+        text-align: left;
+        border-bottom: 1px solid var(--color-secondary);
+        padding: 4px;
+        color: var(--color-secondary);
+        font-family: 'Space Mono', monospace;
+    }
+
+    .pill-table td {
+        padding: 4px;
+        color: var(--color-text);
+        border-bottom: 1px solid rgba(102, 252, 241, 0.1);
+    }
+
+    .pill-qty {
+        text-align: right;
+        font-family: 'Space Mono', monospace;
     }
 </style>
