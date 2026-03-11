@@ -20,11 +20,29 @@
     let pill_scan_result = $state<PillEntry[]>([]);
     let pill_scan_captured = $state(false);
 
-    let sendRegisterRequest = () => {};
-    let sendRegisterBoxExit = () => {};
-    let sendCapturePills = () => {};
-    let checkout_shelf = (shelf_tag: string) => {};
-    
+    let socket = $state<WebSocket | null>(null);
+
+    let sendRegisterRequest = () => {
+        socket?.send(JSON.stringify({type: "registerBox", message: entering_box_id.toString()}));
+    };
+    let sendRegisterBoxExit = () => {
+        socket?.send(JSON.stringify({type: "registerBoxExit", message: shelf_currently_checking_out.toString()}));
+    };
+    let sendCapturePills = () => {
+        pill_scan_captured = false;
+        pill_scan_result = [];
+        socket?.send(JSON.stringify({type: "capturePills"}));
+    };
+    let checkout_shelf = (shelf_tag: string) => {
+        shelf_currently_checking_out = shelf_tag;
+        let confirm_checkout = confirm("Are you sure you want to check out the box at shelf "+shelf_tag+"?");
+        if (confirm_checkout) {
+            socket?.send(JSON.stringify({type: "registerBoxExit", message: shelf_tag}));
+        } else {
+            shelf_currently_checking_out = "";
+        }
+    };
+
     let handleFaceRecContinue = () => {
         if (status === "face_recognition_boxentry") {
             sendRegisterRequest();
@@ -34,35 +52,16 @@
     }
 
     function connect() {
-        let socket = new WebSocket("ws://localhost:3000");
+        let ws = new WebSocket("ws://localhost:3000");
 
-        socket.onopen = () => {
+        ws.onopen = () => {
             console.log("WebSocket connection established");
+            socket = ws;
             connected = true;
-            socket.send(JSON.stringify({type: "kioskConnected"}));
-            sendRegisterRequest = () => {
-                socket.send(JSON.stringify({type: "registerBox", message: entering_box_id}));
-            }
-            sendRegisterBoxExit = () => {
-                socket.send(JSON.stringify({type: "registerBoxExit", message: shelf_currently_checking_out}));
-            }
-            sendCapturePills = () => {
-                pill_scan_captured = false;
-                pill_scan_result = [];
-                socket.send(JSON.stringify({type: "capturePills"}));
-            }
-            checkout_shelf = (shelf_tag: string) => {
-                shelf_currently_checking_out = shelf_tag;
-                let confirm_checkout = confirm("Are you sure you want to check out the box at shelf "+shelf_tag+"?");
-                 if (confirm_checkout) {
-                    socket.send(JSON.stringify({type: "registerBoxExit", message: shelf_tag}));
-                } else {
-                    shelf_currently_checking_out = "";
-                }
-            }
+            ws.send(JSON.stringify({type: "kioskConnected"}));
         }
 
-        socket.onmessage = (e) => {
+        ws.onmessage = (e) => {
             let jsonMsg = JSON.parse(e.data);
             console.log(jsonMsg);
 
@@ -90,20 +89,21 @@
             } else if (jsonMsg.type === "faceRecognitionUpdate") {
                 currently_detected_face = jsonMsg.message;
             } else if (jsonMsg.type === "pillScanResult") {
-                pill_scan_result = jsonMsg.message;
+                pill_scan_result = jsonMsg.pills;
                 pill_scan_captured = true;
             }
         }
 
-        socket.onclose = () => {
+        ws.onclose = () => {
             console.log("WebSocket connection closed. Reconnecting in 3s...");
+            socket = null;
             connected = false;
             setTimeout(connect, 3000);
         }
 
-        socket.onerror = (err) => {
+        ws.onerror = (err) => {
             console.error("WebSocket error:", err);
-            socket.close();
+            ws.close();
         }
     }
 
