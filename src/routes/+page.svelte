@@ -66,7 +66,7 @@
             let jsonMsg = JSON.parse(e.data);
             console.log(jsonMsg);
 
-            if (jsonMsg.type === "boxEnterConfirmation") {
+            if (jsonMsg.type === "boxEntered") {
                 entering_box_id = jsonMsg.message;
                 show_entered_popup = true;
             } else if (jsonMsg.type === "boxEnterCancel") {
